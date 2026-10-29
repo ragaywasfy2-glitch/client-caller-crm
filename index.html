@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة العملاء والفواتير والمكالمات</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#059669">
+</head>
+<body class="bg-gray-50 font-sans">
+
+    <div class="max-w-md mx-auto bg-white min-h-screen shadow-lg flex flex-col">
+        <!-- Header -->
+        <header class="bg-emerald-600 text-white p-4 flex justify-between items-center shadow-md">
+            <div>
+                <h1 class="text-lg font-bold"><i class="fa-solid fa-address-book ml-2"></i> سجل العملاء والمكالمات</h1>
+                <p class="text-xs text-emerald-100">إدارة الفواتير والواتساب السريع</p>
+            </div>
+            <button onclick="openAddModal()" class="bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition shadow">
+                <i class="fa-solid fa-plus ml-1"></i> عميل جديد
+            </button>
+        </header>
+
+        <!-- Search & Simulated Caller ID Trigger -->
+        <div class="p-4 bg-emerald-50 border-b border-emerald-100">
+            <label class="block text-xs font-bold text-emerald-800 mb-1">محاكاة مكالمة واردة أو بحث سريع:</label>
+            <div class="flex gap-2">
+                <input type="text" id="incomingSearch" placeholder="ابحث بالاسم أو رقم الهاتف..." class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
+                <button onclick="simulateCall()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-emerald-700 shadow">اتصال</button>
+            </div>
+        </div>
+
+        <!-- Clients List -->
+        <div class="flex-1 p-4 overflow-y-auto space-y-3" id="clientsList">
+            <!-- سيتم تعبئتها ديناميكياً -->
+        </div>
+    </div>
+
+    <!-- Modal إضافة عميل أو فاتورة -->
+    <div id="clientModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50">
+        <div class="bg-white w-full max-w-sm rounded-xl p-5 shadow-xl">
+            <h3 class="text-lg font-bold text-gray-800 mb-4" id="modalTitle">إضافة عميل جديد</h3>
+            <form id="clientForm" onsubmit="saveClient(event)">
+                <input type="hidden" id="clientId">
+                <div class="mb-3">
+                    <label class="block text-xs text-gray-600 mb-1">اسم العميل</label>
+                    <input type="text" id="clientName" required class="w-full px-3 py-2 border rounded-lg text-sm">
+                </div>
+                <div class="mb-3">
+                    <label class="block text-xs text-gray-600 mb-1">رقم الهاتف (متبوعاً بكود الدولة، مثلاً: 2010xxxxxxxx+)</label>
+                    <input type="text" id="clientPhone" required class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="201012345678">
+                </div>
+                <div class="mb-3">
+                    <label class="block text-xs text-gray-600 mb-1">نوع الفاتورة (كتابية أو ملاحظة الطلب)</label>
+                    <textarea id="clientInvoice" rows="3" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="اكتب تفاصيل الفاتورة أو المنتجات المطلوبة..."></textarea>
+                </div>
+                <div class="flex justify-end gap-2 mt-4">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold">إلغاء</button>
+                    <button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700">حفظ وتأريخ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Popup محاكاة مكالمة واردة (Caller ID Pop-up) -->
+    <div id="callerPopup" class="fixed top-4 left-4 right-4 bg-gray-900 text-white p-4 rounded-xl shadow-2xl hidden z-50 border-2 border-emerald-500 animate-bounce">
+        <div class="flex justify-between items-start">
+            <div>
+                <span class="text-xs text-emerald-400 font-bold"><i class="fa-solid fa-phone-volume animate-pulse ml-1"></i> مكالمة واردة الآن (Pop-up)...</span>
+                <h3 id="popupName" class="text-lg font-bold mt-1">اسم العميل</h3>
+                <p id="popupPhone" class="text-sm text-gray-300">01000000000</p>
+            </div>
+            <button onclick="closePopup()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+        </div>
+        <div class="mt-3 bg-gray-800 p-2.5 rounded-lg text-xs text-gray-200" id="popupLastInvoice">
+            آخر فاتورة: لا يوجد
+        </div>
+        <div class="mt-3 flex gap-2">
+            <a id="popupWhatsapp" href="#" target="_blank" class="flex-1 bg-emerald-600 text-center py-2 rounded-lg text-xs font-bold hover:bg-emerald-700 shadow"><i class="fa-brands fa-whatsapp ml-1"></i> مراسلة واتساب</a>
+            <button onclick="closePopup()" class="bg-gray-700 px-4 py-2 rounded-lg text-xs font-bold">إغلاق</button>
+        </div>
+    </div>
+
+    <script>
+        let clients = JSON.parse(localStorage.getItem('clients_crm_data')) || [
+            { id: 1, name: "أحمد عبد العال", phone: "201012345678", invoices: [{ date: "29/10/2026 02:30 ص", text: "طلب أدوية بيطرية وعلف بادي" }] }
+        ];
+
+        function renderClients() {
+            const list = document.getElementById('clientsList');
+            list.innerHTML = '';
+            
+            clients.forEach(client => {
+                let lastInv = client.invoices.length > 0 ? client.invoices[client.invoices.length - 1] : { text: "لا توجد فواتير سابقة", date: "-" };
+                
+                list.innerHTML += `
+                    <div class="bg-white border rounded-xl p-4 shadow-sm hover:shadow-md transition">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="font-bold text-gray-800 text-base">${client.name}</h3>
+                                <p class="text-xs text-gray-500 mt-0.5"><i class="fa-solid fa-phone ml-1"></i> ${client.phone}</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <a href="https://wa.me/${client.phone}" target="_blank" class="w-9 h-9 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center hover:bg-emerald-600 hover:text-white transition shadow-sm" title="مراسلة واتساب">
+                                    <i class="fa-brands fa-whatsapp text-lg"></i>
+                                </a>
+                                <button onclick="openAddModal(${client.id})" class="w-9 h-9 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center hover:bg-gray-200 shadow-sm" title="إضافة فاتورة جديدة">
+                                    <i class="fa-solid fa-file-invoice text-sm"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mt-3 pt-3 border-t text-xs bg-gray-50 p-2.5 rounded-lg">
+                            <span class="font-bold text-emerald-700 block mb-1"><i class="fa-regular fa-clock ml-1"></i> آخر فاتورة (${lastInv.date}):</span>
+                            <p class="text-gray-700">${lastInv.text}</p>
+                        </div>
+                    </div>
+                `;
+            });
+            localStorage.setItem('clients_crm_data', JSON.stringify(clients));
+        }
+
+        function openAddModal(id = null) {
+            document.getElementById('clientModal').classList.remove('hidden');
+            document.getElementById('clientModal').classList.add('flex');
+            if (id) {
+                let client = clients.find(c => c.id === id);
+                document.getElementById('modalTitle').innerText = "إضافة فاتورة جديدة للعميل";
+                document.getElementById('clientId').value = client.id;
+                document.getElementById('clientName').value = client.name;
+                document.getElementById('clientName').disabled = true;
+                document.getElementById('clientPhone').value = client.phone;
+                document.getElementById('clientPhone').disabled = true;
+                document.getElementById('clientInvoice').value = "";
+            } else {
+                document.getElementById('modalTitle').innerText = "إضافة عميل جديد";
+                document.getElementById('clientId').value = "";
+                document.getElementById('clientName').value = "";
+                document.getElementById('clientName').disabled = false;
+                document.getElementById('clientPhone').value = "";
+                document.getElementById('clientPhone').disabled = false;
+                document.getElementById('clientInvoice').value = "";
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('clientModal').classList.remove('flex');
+            document.getElementById('clientModal').classList.add('hidden');
+        }
+
+        function saveClient(e) {
+            e.preventDefault();
+            let id = document.getElementById('clientId').value;
+            let name = document.getElementById('clientName').value;
+            let phone = document.getElementById('clientPhone').value;
+            let invoiceText = document.getElementById('clientInvoice').value;
+
+            // تأريخ تلقائي باليوم، الشهر، والساعة
+            let now = new Date();
+            let dateStr = now.toLocaleDateString('ar-EG') + ' ' + now.toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'});
+
+            if (id) {
+                let client = clients.find(c => c.id == id);
+                if (invoiceText) {
+                    client.invoices.push({ date: dateStr, text: invoiceText });
+                }
+            } else {
+                let newClient = {
+                    id: Date.now(),
+                    name: name,
+                    phone: phone,
+                    invoices: invoiceText ? [{ date: dateStr, text: invoiceText }] : []
+                };
+                clients.push(newClient);
+            }
+
+            closeModal();
+            renderClients();
+        }
+
+        function simulateCall() {
+            let query = document.getElementById('incomingSearch').value.toLowerCase();
+            let found = clients.find(c => c.name.toLowerCase().includes(query) || c.phone.includes(query));
+            
+            if (found) {
+                let lastInv = found.invoices.length > 0 ? found.invoices[found.invoices.length - 1].text : "لا توجد فواتير سابقة";
+                document.getElementById('popupName').innerText = found.name;
+                document.getElementById('popupPhone').innerText = found.phone;
+                document.getElementById('popupLastInvoice').innerText = "آخر فاتورة: " + lastInv;
+                document.getElementById('popupWhatsapp').href = `https://wa.me/${found.phone}`;
+                
+                let popup = document.getElementById('callerPopup');
+                popup.classList.remove('hidden');
+            } else {
+                alert("العميل غير مسجل، قم بإضافته أولاً للقائمة!");
+            }
+        }
+
+        function closePopup() {
+            document.getElementById('callerPopup').classList.add('hidden');
+        }
+
+        renderClients();
+    </script>
+</body>
+</html>
