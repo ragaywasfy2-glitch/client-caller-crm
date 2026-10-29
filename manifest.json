@@ -1,0 +1,15 @@
+{
+  "name": "إدارة العملاء والمكالمات",
+  "short_name": "سجل العملاء",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#059669",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3059/3059518.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
